@@ -1,18 +1,47 @@
 {
+  "config_version": 2,
   "io": {
     "format": "csv",
     "path": "testdata/csi_small.csv"
   },
+  "dsp": {
+    "window_frames": 16,
+    "topk_subcarriers": 1,
+    "smoothing": {
+      "type": "ema",
+      "alpha": 0.3,
+      "kernel": 3
+    },
+    "fft": {
+      "window": "hann",
+      "zero_pad_pow2": true
+    },
+    "bands": {
+      "motion": {
+        "low_hz": 0.5,
+        "high_hz": 5.0
+      },
+      "breathing": {
+        "enabled": true,
+        "low_hz": 0.1,
+        "high_hz": 0.5
+      }
+    }
+  },
+  "decision": {
+    "threshold_on": 0.02,
+    "threshold_off": 0.01,
+    "hold_frames": 2
+  },
   "runtime": {
-    "ring_buffer_capacity_frames": 16,
+    "ring_buffer_capacity_frames": 32,
     "max_batch_frames": 8,
-    "clock": "from_input"
+    "clock": "from_input",
+    "max_jitter_ratio": 0.3,
+    "backpressure": "drop_oldest",
+    "report_every_seconds": 1
   },
   "logging": {
     "level": "info"
-  },
-  "pipeline": {
-    "enabled_stages": ["normalize", "feature", "presence_decision"],
-    "presence_threshold": 2.0
   }
 }

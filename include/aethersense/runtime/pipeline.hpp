@@ -1,30 +1,40 @@
 #pragma once
 
-#include <string>
+#include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "aethersense/core/config.hpp"
 #include "aethersense/core/errors.hpp"
 #include "aethersense/core/types.hpp"
+#include "aethersense/runtime/decision_engine.hpp"
+#include "aethersense/runtime/metrics.hpp"
 
 namespace aethersense {
 
 struct Decision {
   std::uint64_t timestamp_ns{0};
-  float energy{0.0F};
+  float energy_motion{0.0F};
+  float energy_breathing{0.0F};
   bool present{false};
 };
 
 class Pipeline {
 public:
-  explicit Pipeline(float presence_threshold, std::vector<std::string> enabled_stages);
-  Result<Decision> Process(const CsiFrame &frame) const;
+  struct FrameSignals {
+    std::uint64_t timestamp_ns{0};
+    std::vector<float> amplitude_by_sc;
+    std::vector<float> phase_by_sc;
+  };
+
+  explicit Pipeline(const Config &config);
+
+  Result<std::optional<Decision>> ProcessFrame(const CsiFrame &frame, RuntimeMetrics &metrics);
 
 private:
-  [[nodiscard]] bool IsEnabled(const std::string &stage) const;
-
-  float presence_threshold_;
-  std::vector<std::string> enabled_stages_;
+  Config config_;
+  DecisionEngine decision_engine_;
+  std::vector<FrameSignals> window_;
 };
 
 } // namespace aethersense

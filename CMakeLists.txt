@@ -38,6 +38,8 @@ if(BUILD_TESTING)
     tests/test_config.cpp
     tests/test_ring_buffer.cpp
     tests/test_parsers.cpp
+    tests/test_dsp.cpp
+    tests/test_decision.cpp
     tests/test_pipeline_smoke.cpp
   )
   target_link_libraries(aethersense_tests PRIVATE aethersense_core)

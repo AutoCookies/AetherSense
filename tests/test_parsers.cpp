@@ -9,7 +9,7 @@ TEST_CASE(CSV_parser_reads_frame_with_exact_size) {
   const auto frame = reader.value()->next();
   REQUIRE(frame.ok());
   REQUIRE(frame.value().has_value());
-  REQUIRE(frame.value()->timestamp_ns == 1000);
+  REQUIRE(frame.value()->timestamp_ns == 1000000000ULL);
   REQUIRE(frame.value()->sample_count() == 4);
 }
 

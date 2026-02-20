@@ -1,81 +1,45 @@
-# AetherSense Core (Phase 1)
+# AetherSense Core v1.0.0
 
-AetherSense Core is a production-oriented, test-driven C++20 runtime for consent-based **presence/motion detection** from pre-extracted CSI-like complex streams (or generic complex time-series).
+AetherSense Core is a consent-based, offline-friendly C++20 signal-processing runtime for presence/motion detection from **pre-extracted** CSI-like complex streams.
 
-## What this is
-- Offline-capable CSI-like frame ingestion (CSV/JSONL).
-- Strict, versioned core frame and config schemas.
-- Deterministic Phase 1 pipeline: normalization (placeholder) -> feature extraction (mean magnitude energy) -> presence decision.
-- Thread-safe bounded ring buffer runtime primitive.
+## Safety boundary
+- This project does **not** include CSI extraction, driver patches, kernel modules, firmware changes, or packet injection.
+- Inputs are file-based/mock streams only.
 
-## What this is **NOT**
-- Not CSI extraction.
-- No driver hacking, firmware patching, kernel mods, or packet injection.
-- No ML framework integration in Phase 1.
+## Phase 2 pipeline
+1. Ingest `CsiFrame` samples (CSV/JSONL).
+2. Aggregate a fixed window of frames.
+3. Build subcarrier time-series; select top-K by variance.
+4. Phase processing per selected subcarrier: `atan2` -> unwrap -> detrend.
+5. Smooth (EMA or median).
+6. Apply Hann/Hamming window and FFT.
+7. Integrate band energy (motion 0.5-5.0Hz, optional breathing 0.1-0.5Hz).
+8. Hysteresis decision (`threshold_on`, `threshold_off`, `hold_frames`).
 
-## Quickstart
+## Build / test
 ```bash
 cmake -S . -B build
-cmake --build build
+cmake --build build -j4
 ctest --test-dir build --output-on-failure
-./build/aethersense_cli --config ./testdata/sample_config.json
 ```
 
-## Canonical data model (SOT)
-`aethersense::CsiFrame` in `include/aethersense/core/types.hpp`.
+## Run
+```bash
+./build/apps/aethersense_cli --config ./testdata/sample_config.json
+./build/apps/aethersense_cli --config ./testdata/sample_config.json --dry-run
+./build/apps/aethersense_cli --config ./testdata/sample_config.json --export-decisions ./decisions.csv
+./build/apps/aethersense_cli --print-config-schema
+./build/apps/aethersense_cli --version
+```
 
-Required fields:
-- `timestamp_ns` (`uint64_t`)
-- `center_freq_hz` (`uint64_t`)
-- `subcarrier_count` (`uint16_t`)
-- `rx_count` (`uint8_t`)
-- `tx_count` (`uint8_t`)
-- `data` (`std::vector<std::complex<float>>`) row-major mapping:
-  `((rx * tx_count + tx) * subcarrier_count + sc)`
-
-Zero-copy `FrameView` is provided with `std::span<const std::complex<float>>`.
-
-## Configuration schema (SOT)
-JSON config fields:
-- `io.format`: `csv` or `jsonl`
-- `io.path`
-- `runtime.ring_buffer_capacity_frames` (>= 8)
-- `runtime.max_batch_frames` (<= capacity)
-- `runtime.clock`: `monotonic` or `from_input`
-- `logging.level`
-- `pipeline.enabled_stages` (string list)
-- `pipeline.presence_threshold` ([0, 1e6])
-
+## Config v2 example
 See `testdata/sample_config.json`.
 
-## Input formats
-### CSV
-Header required:
-```text
-timestamp_ns,center_freq_hz,rx,tx,subcarrier_count,data_re,data_im
-```
-Where `data_re` and `data_im` are semicolon-separated float lists with length `rx*tx*subcarrier_count`.
-
-### JSONL
-One JSON object per line with fields:
-`timestamp_ns, center_freq_hz, rx, tx, subcarrier_count, data_re, data_im`.
-
-## Testing
-```bash
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
 ## CI
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
-- Build/test matrix: Ubuntu (gcc/clang) + macOS (clang)
-- clang-format check
-- Sanitizer job (ASAN+UBSAN)
-- clang-tidy pass
+- Linux/macOS build+test matrix.
+- Sanitizer job (ASAN/UBSAN).
+- clang-format and clang-tidy checks.
 
-## Roadmap (Phase 2)
-- Real normalization stage
-- Windowing + filtering
-- FFT-domain features
-- Multi-metric decision logic
+## Limitations
+- Designed for deterministic lab demos and reproducible file-driven evaluation.
+- No hardware acquisition code in this repository.
