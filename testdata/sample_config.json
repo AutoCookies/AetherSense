@@ -1,0 +1,18 @@
+{
+  "io": {
+    "format": "csv",
+    "path": "testdata/csi_small.csv"
+  },
+  "runtime": {
+    "ring_buffer_capacity_frames": 16,
+    "max_batch_frames": 8,
+    "clock": "from_input"
+  },
+  "logging": {
+    "level": "info"
+  },
+  "pipeline": {
+    "enabled_stages": ["normalize", "feature", "presence_decision"],
+    "presence_threshold": 2.0
+  }
+}
