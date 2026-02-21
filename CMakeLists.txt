@@ -17,6 +17,11 @@ add_library(aethersense_core
   src/core/config.cpp
   src/io/csv_reader.cpp
   src/io/json_reader.cpp
+  src/io/stream_reader.cpp
+  src/io/record_recovery.cpp
+  src/dsp/resampler.cpp
+  src/dsp/calibration.cpp
+  src/dsp/outlier.cpp
   src/runtime/ring_buffer.cpp
   src/runtime/pipeline.cpp
 )
@@ -41,6 +46,12 @@ if(BUILD_TESTING)
     tests/test_dsp.cpp
     tests/test_decision.cpp
     tests/test_pipeline_smoke.cpp
+    tests/test_stream_reader.cpp
+    tests/test_record_recovery.cpp
+    tests/test_resampler.cpp
+    tests/test_calibration.cpp
+    tests/test_outlier.cpp
+    tests/test_soak.cpp
   )
   target_link_libraries(aethersense_tests PRIVATE aethersense_core)
   add_test(NAME aethersense_tests COMMAND aethersense_tests)

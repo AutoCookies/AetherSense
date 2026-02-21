@@ -1,47 +1,34 @@
 {
-  "config_version": 2,
+  "config_version": 3,
   "io": {
     "format": "csv",
-    "path": "testdata/csi_small.csv"
+    "path": "../testdata/csi_small.csv",
+    "mode": "file",
+    "checkpoint_path": "../testdata/.checkpoint",
+    "start_position": "begin",
+    "rotate_handling": "reopen",
+    "max_corrupt_ratio": 0.5,
+    "max_partial_line_bytes": 16384,
+    "poll_interval_ms": 50,
+    "max_consecutive_errors": 32
   },
   "dsp": {
     "window_frames": 16,
     "topk_subcarriers": 1,
-    "smoothing": {
-      "type": "ema",
-      "alpha": 0.3,
-      "kernel": 3
-    },
-    "fft": {
-      "window": "hann",
-      "zero_pad_pow2": true
-    },
-    "bands": {
-      "motion": {
-        "low_hz": 0.5,
-        "high_hz": 5.0
-      },
-      "breathing": {
-        "enabled": true,
-        "low_hz": 0.1,
-        "high_hz": 0.5
-      }
-    }
+    "smoothing": {"type": "ema", "alpha": 0.3, "kernel": 3},
+    "fft": {"window": "hann", "zero_pad_pow2": true},
+    "resampling": {"method": "linear", "reject_jitter_ratio": 0.9},
+    "outlier": {"method": "mad", "k": 3.0, "outlier_window": 5},
+    "bands": {"motion": {"low_hz": 0.5, "high_hz": 5.0}, "breathing": {"enabled": false, "low_hz": 0.1, "high_hz": 0.5}}
   },
-  "decision": {
-    "threshold_on": 0.02,
-    "threshold_off": 0.01,
-    "hold_frames": 2
-  },
+  "decision": {"threshold_on": 0.2, "threshold_off": 0.1, "hold_frames": 2},
   "runtime": {
-    "ring_buffer_capacity_frames": 32,
-    "max_batch_frames": 8,
+    "ring_buffer_capacity_frames": 64,
+    "max_batch_frames": 16,
     "clock": "from_input",
-    "max_jitter_ratio": 0.3,
+    "max_jitter_ratio": 0.2,
     "backpressure": "drop_oldest",
     "report_every_seconds": 1
   },
-  "logging": {
-    "level": "info"
-  }
+  "logging": {"level": "info"}
 }

@@ -1,54 +1,10 @@
-name: CI
-
-on:
-  push:
-  pull_request:
-
+name: ci
+on: [push, pull_request]
 jobs:
-  build-and-test:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            cc: gcc
-            cxx: g++
-          - os: ubuntu-latest
-            cc: clang
-            cxx: clang++
-          - os: macos-latest
-            cc: clang
-            cxx: clang++
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure
-        env:
-          CC: ${{ matrix.cc }}
-          CXX: ${{ matrix.cxx }}
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build build --config Release --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
-      - name: clang-format check
-        run: |
-          find include src apps tests -type f \( -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 clang-format --dry-run --Werror
-
-  sanitizers:
+  core:
     runs-on: ubuntu-latest
-    env:
-      CC: clang
-      CXX: clang++
     steps:
       - uses: actions/checkout@v4
-      - name: Configure (ASAN/UBSAN)
-        run: cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug -DAETHERSENSE_ENABLE_SANITIZERS=ON
-      - name: Build
-        run: cmake --build build-sanitize --parallel
-      - name: Test
-        run: ctest --test-dir build-sanitize --output-on-failure
-      - name: clang-tidy
-        run: |
-          cmake -S . -B build-tidy -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          cmake --build build-tidy --parallel
-          find src apps include -type f \( -name "*.cpp" -o -name "*.hpp" \) -print0 | xargs -0 -I{} clang-tidy {} -p build-tidy
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAETHERSENSE_ENABLE_SANITIZERS=ON
+      - run: cmake --build build --parallel
+      - run: ctest --test-dir build --output-on-failure

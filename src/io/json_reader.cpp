@@ -1,101 +1,86 @@
 #include "aethersense/io/csi_reader.hpp"
 
-#include <cstdint>
-#include <fstream>
-#include <regex>
-#include <sstream>
-#include <string>
-#include <vector>
+#include <memory>
+
+#include "aethersense/io/record_recovery.hpp"
 
 namespace aethersense {
-
-Result<std::unique_ptr<ICsiReader>> CreateCsvReader(const std::string &path);
-
 namespace {
 
-Result<std::string> ExtractField(const std::string &line, const std::string &key) {
-  const std::regex re("\"" + key + "\"\\s*:\\s*([^,}]+)");
-  std::smatch m;
-  if (!std::regex_search(line, m, re)) {
-    return Error{ErrorCode::kParseError, "missing key: " + key};
-  }
-  return m[1].str();
-}
-
-Result<std::vector<float>> ExtractFloatArray(const std::string &line, const std::string &key) {
-  const std::regex re("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]");
-  std::smatch m;
-  if (!std::regex_search(line, m, re)) {
-    return Error{ErrorCode::kParseError, "missing array: " + key};
-  }
-
-  std::vector<float> out;
-  std::stringstream ss(m[1].str());
-  std::string token;
-  while (std::getline(ss, token, ',')) {
-    out.push_back(std::stof(token));
-  }
-  return out;
-}
-
-class JsonlCsiReader final : public ICsiReader {
+class RecoveryReader final : public ICsiReader {
 public:
-  explicit JsonlCsiReader(const std::string &path) : in_(path) {}
+  RecoveryReader(const Config::Io &cfg, std::unique_ptr<io::IStreamReader> stream)
+      : cfg_(cfg), stream_(std::move(stream)) {}
 
   Result<std::optional<CsiFrame>> next() override {
-    if (!in_) {
-      return Error{ErrorCode::kIoError, "JSONL file not opened"};
-    }
-    std::string line;
-    if (!std::getline(in_, line)) {
-      return std::optional<CsiFrame>{};
-    }
-
-    try {
-      CsiFrame frame;
-      frame.timestamp_ns = std::stoull(ExtractField(line, "timestamp_ns").value());
-      frame.center_freq_hz = std::stoull(ExtractField(line, "center_freq_hz").value());
-      frame.rx_count = static_cast<std::uint8_t>(std::stoi(ExtractField(line, "rx").value()));
-      frame.tx_count = static_cast<std::uint8_t>(std::stoi(ExtractField(line, "tx").value()));
-      frame.subcarrier_count =
-          static_cast<std::uint16_t>(std::stoi(ExtractField(line, "subcarrier_count").value()));
-      auto re = ExtractFloatArray(line, "data_re");
-      if (!re.ok())
-        return re.error();
-      auto im = ExtractFloatArray(line, "data_im");
-      if (!im.ok())
-        return im.error();
-
-      const std::size_t expected =
-          static_cast<std::size_t>(frame.rx_count) * frame.tx_count * frame.subcarrier_count;
-      if (re.value().size() != expected || im.value().size() != expected) {
-        return Error{ErrorCode::kParseError, "JSONL data_re/data_im length mismatch"};
+    while (true) {
+      auto rec = stream_->read_next();
+      if (!rec.ok()) {
+        ++stats_.consecutive_errors_current;
+        if (stats_.consecutive_errors_current > static_cast<std::size_t>(cfg_.max_consecutive_errors)) {
+          return rec.error();
+        }
+        continue;
       }
-      frame.data.reserve(expected);
-      for (std::size_t i = 0; i < expected; ++i) {
-        frame.data.emplace_back(re.value()[i], im.value()[i]);
+      if (rec.value().eof) {
+        return std::optional<CsiFrame>{};
       }
-      return std::optional<CsiFrame>{std::move(frame)};
-    } catch (const std::exception &ex) {
-      return Error{ErrorCode::kParseError, std::string("JSONL parse failure: ") + ex.what()};
+      if (rec.value().line.empty()) {
+        return std::optional<CsiFrame>{};
+      }
+
+      auto parsed = (cfg_.format == "csv") ? io::ParseCsvRecord(rec.value().line)
+                                             : io::ParseJsonlRecord(rec.value().line);
+      if (parsed.corrupt) {
+        ++stats_.records_corrupt_total;
+        ++corrupt_window_;
+        ++window_size_;
+        if (window_size_ >= 64) {
+          const float ratio = static_cast<float>(corrupt_window_) / static_cast<float>(window_size_);
+          window_size_ = 0;
+          corrupt_window_ = 0;
+          if (ratio > cfg_.max_corrupt_ratio) {
+            return Error{ErrorCode::kParseError, "corrupt ratio exceeded"};
+          }
+        }
+        continue;
+      }
+
+      ++stats_.records_total;
+      ++window_size_;
+      stats_.consecutive_errors_current = 0;
+      return std::optional<CsiFrame>{*parsed.frame};
     }
+  }
+
+  io::StreamStats stream_stats() const override {
+    auto s = stream_->stats();
+    s.records_corrupt_total += stats_.records_corrupt_total;
+    s.records_total += stats_.records_total;
+    s.consecutive_errors_current = stats_.consecutive_errors_current;
+    return s;
   }
 
 private:
-  std::ifstream in_;
+  Config::Io cfg_;
+  std::unique_ptr<io::IStreamReader> stream_;
+  io::StreamStats stats_;
+  std::size_t corrupt_window_{0};
+  std::size_t window_size_{0};
 };
 
 } // namespace
 
-Result<std::unique_ptr<ICsiReader>> CreateReader(const std::string &format,
-                                                 const std::string &path) {
-  if (format == "csv") {
-    return CreateCsvReader(path);
+Result<std::unique_ptr<ICsiReader>> CreateReader(const Config::Io &io_cfg, const std::string &path) {
+  auto stream = io::CreateStreamReader(io_cfg);
+  if (!stream.ok()) {
+    return stream.error();
   }
-  if (format == "jsonl") {
-    return std::unique_ptr<ICsiReader>(new JsonlCsiReader(path));
+  auto opened = stream.value()->open(path);
+  if (!opened.ok()) {
+    return opened.error();
   }
-  return Error{ErrorCode::kUnsupportedFormat, "Unsupported format: " + format};
+  return std::unique_ptr<ICsiReader>(new RecoveryReader(io_cfg, std::move(stream.value())));
 }
 
 } // namespace aethersense

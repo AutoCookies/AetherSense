@@ -13,13 +13,7 @@
 namespace {
 
 void PrintSchema() {
-  std::cout << "AetherSense config v2 schema:\n"
-            << "- config_version=2\n"
-            << "- io: {format: csv|jsonl, path: string}\n"
-            << "- dsp: {window_frames>=16, topk_subcarriers>=1, smoothing, fft, bands}\n"
-            << "- decision: {threshold_on, threshold_off<threshold_on, hold_frames>=0}\n"
-            << "- runtime: {ring_buffer_capacity_frames>=8, max_jitter_ratio, backpressure, "
-               "report_every_seconds}\n";
+  std::cout << "AetherSense config v3 schema with io tail/checkpoint and resampling/outlier controls\n";
 }
 
 } // namespace
@@ -30,6 +24,7 @@ int main(int argc, char **argv) {
   std::string format_override;
   std::string export_path;
   bool dry_run = false;
+  bool output_jsonl = false;
 
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
@@ -41,6 +36,8 @@ int main(int argc, char **argv) {
       format_override = argv[++i];
     } else if (arg == "--export-decisions" && i + 1 < argc) {
       export_path = argv[++i];
+    } else if (arg == "--output" && i + 1 < argc) {
+      output_jsonl = std::string(argv[++i]) == "jsonl";
     } else if (arg == "--print-config-schema") {
       PrintSchema();
       return 0;
@@ -76,7 +73,7 @@ int main(int argc, char **argv) {
     return 4;
   }
 
-  auto reader = aethersense::CreateReader(cfg.io.format, cfg.io.path);
+  auto reader = aethersense::CreateReader(cfg.io, cfg.io.path);
   if (!reader.ok()) {
     std::cerr << "Reader error: " << reader.error().message << "\n";
     return 5;
@@ -100,7 +97,6 @@ int main(int argc, char **argv) {
   std::size_t present_total = 0;
   double energy_sum = 0.0;
   const auto report_start = std::chrono::steady_clock::now();
-  auto last_report = report_start;
 
   while (true) {
     auto frame_result = reader.value()->next();
@@ -109,6 +105,9 @@ int main(int argc, char **argv) {
       return 6;
     }
     if (!frame_result.value().has_value()) {
+      if (cfg.io.mode == "tail") {
+        continue;
+      }
       break;
     }
 
@@ -125,35 +124,28 @@ int main(int argc, char **argv) {
       if (decision.value()->present) {
         ++present_total;
       }
+      const auto total_s =
+          std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - report_start).count();
+      const double fps = total_s > 0 ? metrics.frames_read_total / total_s : 0.0;
+      if (output_jsonl) {
+        const auto st = reader.value()->stream_stats();
+        std::cout << "{\"timestamp_ns\":" << decision.value()->timestamp_ns
+                  << ",\"energy_motion\":" << decision.value()->energy_motion
+                  << ",\"present\":" << (decision.value()->present ? "true" : "false")
+                  << ",\"fps\":" << fps << ",\"p50_us\":" << metrics.Percentile(50)
+                  << ",\"p95_us\":" << metrics.Percentile(95)
+                  << ",\"drops\":" << metrics.frames_dropped_total
+                  << ",\"corrupt\":" << st.records_corrupt_total << "}\n";
+      }
       if (export_file) {
         export_file << decision.value()->timestamp_ns << ',' << decision.value()->energy_motion
                     << ',' << decision.value()->energy_breathing << ','
                     << (decision.value()->present ? 1 : 0) << '\n';
       }
     }
-
-    const auto now = std::chrono::steady_clock::now();
-    const auto elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(now - last_report).count();
-    if (elapsed >= cfg.runtime.report_every_seconds && decisions_total > 0) {
-      const double total_s =
-          std::chrono::duration_cast<std::chrono::duration<double>>(now - report_start).count();
-      const double fps = metrics.frames_read_total / total_s;
-      const double drop_rate = metrics.frames_read_total == 0
-                                   ? 0.0
-                                   : static_cast<double>(metrics.frames_dropped_total) /
-                                         static_cast<double>(metrics.frames_read_total);
-      const double present_ratio =
-          static_cast<double>(present_total) / static_cast<double>(decisions_total);
-      const double avg_energy = energy_sum / static_cast<double>(decisions_total);
-      std::cout << "fps=" << fps << " drop_rate=" << drop_rate
-                << " p50_us=" << metrics.Percentile(50) << " p95_us=" << metrics.Percentile(95)
-                << " present_ratio=" << present_ratio << " energy_motion=" << avg_energy << "\n";
-      last_report = now;
-    }
   }
 
-  if (decisions_total > 0) {
+  if (!output_jsonl && decisions_total > 0) {
     const double present_ratio =
         static_cast<double>(present_total) / static_cast<double>(decisions_total);
     const double avg_energy = energy_sum / static_cast<double>(decisions_total);

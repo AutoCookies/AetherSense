@@ -3,7 +3,7 @@
 #include "aethersense/io/csi_reader.hpp"
 
 TEST_CASE(CSV_parser_reads_frame_with_exact_size) {
-  auto reader = aethersense::CreateReader("csv", "../testdata/csi_small.csv");
+  auto reader = aethersense::CreateReader(aethersense::Config::Io{.format="csv"}, "../testdata/csi_small.csv");
   REQUIRE(reader.ok());
 
   const auto frame = reader.value()->next();
@@ -14,7 +14,7 @@ TEST_CASE(CSV_parser_reads_frame_with_exact_size) {
 }
 
 TEST_CASE(JSONL_parser_reads_frame_with_exact_size) {
-  auto reader = aethersense::CreateReader("jsonl", "../testdata/csi_small.jsonl");
+  auto reader = aethersense::CreateReader(aethersense::Config::Io{.format="jsonl"}, "../testdata/csi_small.jsonl");
   REQUIRE(reader.ok());
 
   const auto frame = reader.value()->next();
