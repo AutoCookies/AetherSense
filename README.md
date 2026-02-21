@@ -1,4 +1,15 @@
-# AetherSense Core v1.0.0
+
+# AetherSense
+
+<div align="center">
+
+[![Discord](assets/logo.png)](https://discord.gg/nnkfW83n)
+&nbsp;
+![C++](https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat&logo=cplusplus&logoColor=white)
+![CMake](https://img.shields.io/badge/CMake-3.20%2B-064F8C?style=flat&logo=cmake&logoColor=white)
+![License](https://img.shields.io/badge/License-NC--Copyleft%201.0-red?style=flat)
+
+</div>
 
 AetherSense Core is a consent-based, offline-friendly C++20 signal-processing runtime for presence/motion detection from **pre-extracted** CSI-like complex streams.
 

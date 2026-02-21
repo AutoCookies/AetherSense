@@ -1,21 +1,76 @@
-MIT License
+Context-Squeezer Non-Commercial Copyleft License
+Version 1.0, 2026
 
-Copyright (c) 2026 Pomai
+Copyright (c) 2026 Pomai. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TERMS AND CONDITIONS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. GRANT OF LICENSE
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to use,
+   copy, modify, merge, and distribute the Software, subject to the conditions
+   below.
+
+2. NON-COMMERCIAL USE ONLY
+
+   The Software may not be used, in whole or in part, for any commercial purpose
+   without explicit prior written permission from the copyright holder.
+
+   "Commercial purpose" means any activity intended for or directed toward
+   commercial advantage or monetary compensation, including but not limited to:
+
+     - Selling or licensing the Software or any product derived from it.
+     - Using the Software in a product or service that is sold or monetised.
+     - Using the Software internally within a for-profit organisation for
+       business-critical operations.
+
+   For commercial licensing inquiries, contact the copyright holder.
+
+3. SHARE-ALIKE (COPYLEFT)
+
+   If you modify the Software or incorporate it into another project, you MUST:
+
+     a. Make the complete corresponding source code of your modified or
+        derivative work publicly available under this same license or a
+        compatible open-source license that also prohibits commercial use
+        and requires source disclosure.
+
+     b. Clearly attribute the original work to the copyright holder and
+        include this license notice in all copies or substantial portions
+        of the Software.
+
+     c. Publish your source code before or at the same time as distributing
+        any binary or compiled form of your derivative work.
+
+4. ATTRIBUTION
+
+   All copies, modifications, or derivative works must retain:
+
+     - The above copyright notice.
+     - A link to the original repository (if available).
+     - A statement of any significant changes made.
+
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+6. TERMINATION
+
+   Any breach of these terms automatically terminates your rights under this
+   license. The copyright holder reserves the right to pursue legal remedies
+   for any violation.
+
+---
+
+Summary (not legally binding):
+  ✔  Free to use for personal, educational, research, and open-source projects.
+  ✔  You may modify and distribute the Software.
+  ✔  If you use or modify the code, you must make your source code public.
+  ✘  Commercial use is not permitted without written permission.
