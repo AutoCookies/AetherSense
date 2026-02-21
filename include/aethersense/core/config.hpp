@@ -8,11 +8,19 @@
 namespace aethersense {
 
 struct Config {
-  int config_version{2};
+  int config_version{3};
 
   struct Io {
     std::string format{"csv"};
     std::string path{};
+    std::string mode{"file"};
+    std::string checkpoint_path{".aethersense.checkpoint"};
+    std::string start_position{"begin"};
+    std::string rotate_handling{"reopen"};
+    float max_corrupt_ratio{0.25F};
+    std::size_t max_partial_line_bytes{16384};
+    int poll_interval_ms{100};
+    int max_consecutive_errors{32};
   } io;
 
   struct Dsp {
@@ -29,6 +37,17 @@ struct Config {
       std::string window{"hann"};
       bool zero_pad_pow2{true};
     } fft;
+
+    struct Resampling {
+      std::string method{"linear"};
+      float reject_jitter_ratio{0.8F};
+    } resampling;
+
+    struct Outlier {
+      std::string method{"mad"};
+      float k{3.0F};
+      int window{5};
+    } outlier;
 
     struct Bands {
       struct Range {

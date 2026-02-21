@@ -12,6 +12,7 @@ struct RuntimeMetrics {
   std::size_t frames_processed_total{0};
   std::size_t frames_dropped_total{0};
   std::size_t windows_rejected_total{0};
+  std::size_t shape_change_total{0};
   std::size_t ring_buffer_depth{0};
   float window_fill_ratio{0.0F};
 

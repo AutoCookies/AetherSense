@@ -6,7 +6,7 @@
 #include "aethersense/runtime/pipeline.hpp"
 
 TEST_CASE(Pipeline_end_to_end_produces_stable_decisions) {
-  auto reader = aethersense::CreateReader("csv", "../testdata/csi_small.csv");
+  auto reader = aethersense::CreateReader(aethersense::Config::Io{.format="csv"}, "../testdata/csi_small.csv");
   REQUIRE(reader.ok());
 
   aethersense::Config cfg;

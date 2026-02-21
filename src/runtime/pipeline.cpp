@@ -6,7 +6,10 @@
 #include <numeric>
 
 #include "aethersense/core/types.hpp"
+#include "aethersense/dsp/calibration.hpp"
 #include "aethersense/dsp/filters.hpp"
+#include "aethersense/dsp/outlier.hpp"
+#include "aethersense/dsp/resampler.hpp"
 #include "aethersense/dsp/window.hpp"
 
 namespace aethersense {
@@ -51,8 +54,16 @@ Result<std::optional<Decision>> Pipeline::ProcessFrame(const CsiFrame &frame,
   if (frame.data.empty()) {
     return Error{ErrorCode::kInvalidArgument, "frame.data cannot be empty"};
   }
-  if (config_.dsp.topk_subcarriers > frame.subcarrier_count) {
-    return Error{ErrorCode::kInvalidConfig, "topk_subcarriers exceeds subcarrier_count"};
+
+  if (window_.empty()) {
+    metrics.shape_change_total = 0;
+  } else {
+    const auto &last = window_.back();
+    if (last.amplitude_by_sc.size() != frame.subcarrier_count) {
+      window_.clear();
+      ++metrics.shape_change_total;
+      return std::optional<Decision>{};
+    }
   }
 
   if (window_.size() == config_.dsp.window_frames) {
@@ -71,33 +82,36 @@ Result<std::optional<Decision>> Pipeline::ProcessFrame(const CsiFrame &frame,
   for (const auto &f : window_) {
     timestamps.push_back(f.timestamp_ns);
   }
-
-  const float median_dt = dsp::MedianDeltaSeconds(timestamps);
-  const float jitter_ratio = dsp::JitterRatio(timestamps, median_dt);
-  if (median_dt <= 0.0F || jitter_ratio > config_.runtime.max_jitter_ratio) {
+  const float jitter_ratio = dsp::JitterMetric(timestamps);
+  if (jitter_ratio > config_.dsp.resampling.reject_jitter_ratio) {
     ++metrics.windows_rejected_total;
     return std::optional<Decision>{};
   }
-  const float sample_rate = 1.0F / median_dt;
 
-  const std::size_t sc_count = frame.subcarrier_count;
-  std::vector<std::vector<float>> amp_series(sc_count, std::vector<float>(window_.size()));
-  std::vector<std::vector<float>> phase_series(sc_count, std::vector<float>(window_.size()));
+  std::vector<std::vector<float>> amp_series(frame.subcarrier_count, std::vector<float>(window_.size()));
+  std::vector<std::vector<float>> phase_series(frame.subcarrier_count, std::vector<float>(window_.size()));
   for (std::size_t t = 0; t < window_.size(); ++t) {
-    for (std::size_t sc = 0; sc < sc_count; ++sc) {
+    for (std::size_t sc = 0; sc < frame.subcarrier_count; ++sc) {
       amp_series[sc][t] = window_[t].amplitude_by_sc[sc];
       phase_series[sc][t] = window_[t].phase_by_sc[sc];
     }
   }
 
-  const auto selected = dsp::TopKVariance(amp_series, config_.dsp.topk_subcarriers);
+  dsp::RemoveCommonPhaseError(phase_series, true);
+  for (auto &series : phase_series) {
+    series = dsp::ResampleToUniformGrid(timestamps, series, config_.dsp.resampling.method);
+    dsp::FilterOutliers(series, config_.dsp.outlier.method, config_.dsp.outlier.k,
+                        config_.dsp.outlier.window);
+    auto uw = dsp::UnwrapPhase(series);
+    dsp::RemoveLinearTrend(uw);
+    series = std::move(uw);
+  }
 
+  const auto selected = dsp::TopKVariance(amp_series, config_.dsp.topk_subcarriers);
   std::vector<float> aggregate(window_.size(), 0.0F);
   for (std::size_t idx : selected) {
-    auto unwrapped = dsp::UnwrapPhase(phase_series[idx]);
-    auto detrended = dsp::Detrend(unwrapped);
     for (std::size_t t = 0; t < aggregate.size(); ++t) {
-      aggregate[t] += detrended[t];
+      aggregate[t] += phase_series[idx][t];
     }
   }
   for (float &v : aggregate) {
@@ -110,6 +124,12 @@ Result<std::optional<Decision>> Pipeline::ProcessFrame(const CsiFrame &frame,
   } else {
     smoothed = dsp::EmaSmooth(aggregate, config_.dsp.smoothing.alpha);
   }
+
+  std::vector<std::uint64_t> dtns;
+  for (std::size_t i = 1; i < timestamps.size(); ++i)
+    dtns.push_back(timestamps[i] - timestamps[i - 1]);
+  std::sort(dtns.begin(), dtns.end());
+  const float sample_rate = 1e9F / static_cast<float>(dtns[dtns.size() / 2]);
 
   dsp::ApplyWindow(smoothed, dsp::ParseWindowType(config_.dsp.fft.window));
   const std::size_t fft_len =
